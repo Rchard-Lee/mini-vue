@@ -6,8 +6,9 @@ class ReactiveEffect {
   }
   run() {
     // 将全局的activeEffect指向当前实例化的ReactiveEffect对象
-    activeEffect = this
-    this._fn()
+    activeEffect = this 
+    // 返回_fn函数调用后的值
+    return this._fn()
   }
 }
 
@@ -51,4 +52,7 @@ let activeEffect
 export function effect(fn) {
   const _effect = new ReactiveEffect(fn)
   _effect.run()
+  // 返回一个runner函数，调用这个函数可以返回fn执行后的结果
+  // 同时通过bind函数将返回的runner函数的this指向当前的_effect实例
+  return _effect.run.bind(_effect)
 }
