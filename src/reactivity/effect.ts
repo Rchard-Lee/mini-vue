@@ -1,8 +1,10 @@
 // 抽离出一个ReactiveEffect类
 class ReactiveEffect {
   private _fn
-  constructor(fn){
+  public _scheduler
+  constructor(fn, scheduler?){
     this._fn = fn
+    this._scheduler = scheduler
   }
   run() {
     // 将全局的activeEffect指向当前实例化的ReactiveEffect对象
@@ -43,14 +45,19 @@ export function track(target, key) {
 export function trigger(target, key) {
   let depsMap = targetMap.get(target)
   let dep = depsMap.get(key)
-  dep.forEach(element => {
-    element.run()
+  dep.forEach(effect => {
+    // 如果_scheduler有值，之后触发更新的时候，执行scheduler
+    if(effect._scheduler){
+      effect._scheduler()
+    }else{
+      effect.run()
+    }
   });
 }
 
 let activeEffect
-export function effect(fn) {
-  const _effect = new ReactiveEffect(fn)
+export function effect(fn, options: any = {}) {
+  const _effect = new ReactiveEffect(fn, options.scheduler)
   _effect.run()
   // 返回一个runner函数，调用这个函数可以返回fn执行后的结果
   // 同时通过bind函数将返回的runner函数的this指向当前的_effect实例
