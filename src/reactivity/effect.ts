@@ -1,7 +1,13 @@
+import { extend } from "../shared"
+
 // 抽离出一个ReactiveEffect类
 class ReactiveEffect {
   private _fn
+  deps = []
+  active = true
+  onStop?: () => void
   public _scheduler
+
   constructor(fn, scheduler?){
     this._fn = fn
     this._scheduler = scheduler
@@ -12,6 +18,22 @@ class ReactiveEffect {
     // 返回_fn函数调用后的值
     return this._fn()
   }
+
+  stop() {
+    if(this.active){
+      cleanupEffect(this)
+      if(this.onStop){
+        this.onStop()
+      }
+      this.active = false
+    } 
+  }
+}
+
+function cleanupEffect(effect){
+  effect.deps.forEach( (dep: any) => {
+    dep.delete(effect)
+  });
 }
 
 // 收集依赖(target——key——dep)
@@ -34,10 +56,15 @@ export function track(target, key) {
     depsMap.set(key, dep)
   }
 
+  // 只有当有effect(fn)的时候才需要对activeEffect进行处理
+  // 如果只是对reactive(对象)进行get操作，activeEffect此时是为undefined的
+  if(!activeEffect) return
   // ?? 那么如何去拿到当前需要放入到set的依赖呢 —— 用一个全局变量作为effect和trace的桥接
   // 开始收集依赖
   dep.add(activeEffect)
   
+  // 双向收集，这里记录当前的activeEffect对应哪些dep
+  activeEffect.deps.push(dep)
 
 }
 
@@ -58,8 +85,17 @@ export function trigger(target, key) {
 let activeEffect
 export function effect(fn, options: any = {}) {
   const _effect = new ReactiveEffect(fn, options.scheduler)
+  extend(_effect, options)
+
+
   _effect.run()
   // 返回一个runner函数，调用这个函数可以返回fn执行后的结果
   // 同时通过bind函数将返回的runner函数的this指向当前的_effect实例
-  return _effect.run.bind(_effect)
+  const runner: any =  _effect.run.bind(_effect)
+  runner.effect = _effect
+  return runner
+}
+
+export function stop(runner) {
+  runner.effect.stop()
 }

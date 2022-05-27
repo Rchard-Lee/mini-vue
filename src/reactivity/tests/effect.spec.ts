@@ -1,5 +1,5 @@
 import { reactive } from '../reactive'
-import { effect } from '../effect'
+import { effect, stop } from '../effect'
 describe('effect', () => {
   it('happy path', () => {
     const user = reactive({
@@ -67,4 +67,44 @@ describe('effect', () => {
     // effect的fn执行了
     expect(dummy).toBe(2)
   })
+
+  it("stop", () => {
+    // 实现原理：删除deps中收集的effect
+
+    let dummy
+    const obj = reactive( {prop: 1})
+    const runner = effect( () => {
+      dummy = obj.prop
+    })
+    obj.prop = 2
+    expect(dummy).toBe(2)
+    // 后续更新响应式的值的时候不会更新
+    stop(runner)
+    obj.prop = 3
+    expect(dummy).toBe(2)
+
+    runner()
+    // 调用runner之后才会再次更新
+    expect(dummy).toBe(3)
+  })
+
+  it("onStop", () => {
+    const obj = reactive({
+      foo: 1,
+    })
+    const onStop = jest.fn()
+    let dummy
+    const runner = effect(
+      () => {
+        dummy = obj.foo
+      },
+      {
+        onStop,
+      }
+    )
+
+    stop(runner)
+    // 作用：在stop的回调函数，可以进行一些处理
+    expect(onStop).toBeCalledTimes(1)
+  } )
 })
